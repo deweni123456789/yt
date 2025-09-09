@@ -1,4 +1,3 @@
-# === FILE: modules/youtube.py ===
 import re
 import os
 import time
@@ -15,14 +14,12 @@ YOUTUBE_REGEX = re.compile(
     re.IGNORECASE,
 )
 
-# ThreadPool for blocking downloads
 DOWNLOAD_WORKERS = ThreadPoolExecutor(max_workers=2)
+FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
 
 
 def detect_platform(text: str) -> Optional[str]:
-    if not text:
-        return None
-    if YOUTUBE_REGEX.search(text):
+    if text and YOUTUBE_REGEX.search(text):
         return "youtube"
     return None
 
@@ -41,8 +38,17 @@ def _yt_dlp_download(url: str, mode: str, output_dir: str):
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        "retries": 3,
+        "retries": 5,
         "continuedl": True,
+        "geo_bypass": True,
+        "nocheckcertificate": True,
+        "ffmpeg_location": FFMPEG_PATH,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/120.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        },
     }
 
     if mode == "audio":
@@ -60,8 +66,11 @@ def _yt_dlp_download(url: str, mode: str, output_dir: str):
             "merge_output_format": "mp4",
         })
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+    except yt_dlp.utils.DownloadError as e:
+        raise Exception(f"❌ Download failed: {e}")
 
     filepath = None
     if isinstance(info, dict):
@@ -99,7 +108,7 @@ async def download_and_send(
         metadata = res.get("metadata", {})
 
         if not filepath or not os.path.exists(filepath):
-            await client.send_message(chat_id, "❌ Download failed.")
+            await client.send_message(chat_id, "❌ Download failed or file not found.")
             await safe_delete(processing_message)
             return
 
@@ -131,7 +140,6 @@ async def download_and_send(
             )
 
         await safe_delete(processing_message)
-
         try:
             os.remove(filepath)
         except Exception:
