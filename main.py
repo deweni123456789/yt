@@ -4,9 +4,9 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from modules import youtube
 
-API_ID = int(os.getenv("API_ID", "123456"))         # add your API_ID
-API_HASH = os.getenv("API_HASH", "your_api_hash")   # add your API_HASH
-BOT_TOKEN = os.getenv("BOT_TOKEN", "your_bot_token")
+API_ID = int(os.getenv("API_ID", "5047271"))         # add your API_ID
+API_HASH = os.getenv("API_HASH", "047d9ed308172e637d4265e1d9ef0c27")   # add your API_HASH
+BOT_TOKEN = os.getenv("BOT_TOKEN", "7896090354:AAE_NaVu_d-x-TCJt9CPNMl9t94Mltw_jrw")
 
 app = Client("yt_dl_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
