@@ -1,67 +1,52 @@
+# === FILE: main.py ===
 import os
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from modules.youtube import detect_platform, download_and_send
+from modules import youtube
 
-API_ID = int(os.getenv("API_ID", "5047271"))   # set in Railway
-API_HASH = os.getenv("API_HASH", "047d9ed308172e637d4265e1d9ef0c27")
-BOT_TOKEN = os.getenv("BOT_TOKEN", "7896090354:AAE_NaVu_d-x-TCJt9CPNMl9t94Mltw_jrw")
+API_ID = int(os.getenv("API_ID", "123456"))         # add your API_ID
+API_HASH = os.getenv("API_HASH", "your_api_hash")   # add your API_HASH
+BOT_TOKEN = os.getenv("BOT_TOKEN", "your_bot_token")
 
-app = Client(
-    "yt_downloader_bot",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    bot_token=BOT_TOKEN,
-)
+app = Client("yt_dl_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-@app.on_message(filters.command("start"))
-async def start_handler(client, message):
-    await message.reply_text(
-        "👋 Hello! Send me a YouTube link and I’ll download it for you.\n\n"
-        "👉 Choose 🎵 audio or 🎬 video.",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/deweni2")]]
-        ),
-    )
 
-@app.on_message(filters.text & ~filters.edited)
-async def youtube_handler(client, message):
-    url = message.text.strip()
-    platform = detect_platform(url)
-    if not platform:
+@app.on_message(filters.text)   # ✅ fixed: removed filters.edited
+async def handle_text(client, message):
+    text = message.text.strip()
+    platform = youtube.detect_platform(text)
+
+    if platform == "youtube":
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎵 Audio", callback_data=f"yt|audio|{text}")],
+            [InlineKeyboardButton("🎬 Video", callback_data=f"yt|video|{text}")]
+        ])
+        await message.reply("🔎 Choose format:", reply_markup=buttons)
+
+
+@app.on_callback_query()
+async def handle_callback(client, callback_query):
+    data = callback_query.data.split("|")
+    if len(data) != 3:
         return
 
-    buttons = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton("🎵 Audio", callback_data=f"yt_audio|{url}"),
-                InlineKeyboardButton("🎬 Video", callback_data=f"yt_video|{url}"),
-            ]
-        ]
-    )
-
-    await message.reply_text("🔽 Select a download option:", reply_markup=buttons, quote=True)
-
-@app.on_callback_query(filters.regex(r"^yt_(audio|video)\|"))
-async def callback_handler(client, callback_query):
-    mode, url = callback_query.data.split("|")
-    mode = mode.replace("yt_", "")
-
-    processing_message = await callback_query.message.reply_text("⏳ Processing your request...")
-
-    await download_and_send(
-        client=client,
-        chat_id=callback_query.message.chat.id,
-        url=url,
-        mode=mode,
-        requester=callback_query.from_user,
-        processing_message=processing_message,
-        developer_markup=InlineKeyboardMarkup(
+    platform, mode, url = data
+    if platform == "yt":
+        processing = await callback_query.message.reply("⏳ Downloading... Please wait")
+        dev_markup = InlineKeyboardMarkup(
             [[InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/deweni2")]]
-        ),
-    )
+        )
+        await youtube.download_and_send(
+            client,
+            callback_query.message.chat.id,
+            url,
+            mode,
+            callback_query.from_user,
+            processing,
+            dev_markup
+        )
+        await callback_query.answer("Done ✅")
+
 
 if __name__ == "__main__":
-    print("✅ Bot is running...")
     app.run()
-
