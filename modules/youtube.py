@@ -38,16 +38,22 @@ def _yt_dlp_download(url: str, mode: str, output_dir: str):
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        "retries": 5,
+        "retries": 10,
         "continuedl": True,
         "geo_bypass": True,
         "nocheckcertificate": True,
+        "source_address": "0.0.0.0",  # 👈 force IPv4
         "ffmpeg_location": FFMPEG_PATH,
-        "http_headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                          "AppleWebKit/537.36 (KHTML, like Gecko) "
-                          "Chrome/120.0 Safari/537.36",
+        "http_headers": {  # 👈 real browser headers
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
             "Accept-Language": "en-US,en;q=0.9",
+        },
+        "extractor_args": {
+            "youtube": {"player_skip": ["configs", "webpage"]}
         },
     }
 
@@ -62,7 +68,7 @@ def _yt_dlp_download(url: str, mode: str, output_dir: str):
         })
     else:
         ydl_opts.update({
-            "format": "bestvideo[ext=mp4]+bestaudio/best/best",
+            "format": "mp4[height<=720]+bestaudio/best/best",
             "merge_output_format": "mp4",
         })
 
