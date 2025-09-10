@@ -1,3 +1,10 @@
+# === FILE: modules/youtube.py ===
+"""
+YouTube downloader helper with yt-dlp + FFMPEG support
+- Fixes 403 Forbidden by forcing headers & geo_bypass
+- Supports COOKIES_FILE env for age/geo restricted videos
+"""
+
 import re
 import os
 import time
@@ -15,7 +22,9 @@ YOUTUBE_REGEX = re.compile(
 )
 
 DOWNLOAD_WORKERS = ThreadPoolExecutor(max_workers=2)
+
 FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
+COOKIES_FILE = os.getenv("COOKIES_FILE", None)
 
 
 def detect_platform(text: str) -> Optional[str]:
@@ -38,24 +47,24 @@ def _yt_dlp_download(url: str, mode: str, output_dir: str):
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        "retries": 10,
+        "retries": 5,
         "continuedl": True,
         "geo_bypass": True,
         "nocheckcertificate": True,
-        "source_address": "0.0.0.0",  # 👈 force IPv4
         "ffmpeg_location": FFMPEG_PATH,
-        "http_headers": {  # 👈 real browser headers
+        "http_headers": {
             "User-Agent": (
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
+                "Chrome/120.0 Safari/537.36"
             ),
             "Accept-Language": "en-US,en;q=0.9",
         },
-        "extractor_args": {
-            "youtube": {"player_skip": ["configs", "webpage"]}
-        },
     }
+
+    # Use cookies if provided
+    if COOKIES_FILE and os.path.exists(COOKIES_FILE):
+        ydl_opts["cookiefile"] = COOKIES_FILE
 
     if mode == "audio":
         ydl_opts.update({
@@ -68,7 +77,7 @@ def _yt_dlp_download(url: str, mode: str, output_dir: str):
         })
     else:
         ydl_opts.update({
-            "format": "mp4[height<=720]+bestaudio/best/best",
+            "format": "bestvideo[ext=mp4]+bestaudio/best/best",
             "merge_output_format": "mp4",
         })
 
@@ -78,6 +87,7 @@ def _yt_dlp_download(url: str, mode: str, output_dir: str):
     except yt_dlp.utils.DownloadError as e:
         raise Exception(f"❌ Download failed: {e}")
 
+    # Find downloaded file
     filepath = None
     if isinstance(info, dict):
         filepath = info.get("_filename") or info.get("requested_downloads", [{}])[0].get("_filename")
